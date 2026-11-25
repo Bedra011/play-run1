@@ -1,0 +1,1437 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>معسكر صناعة الإعلام الرقمي — Pixel Arcade Runner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-dark: #070913;
+      --pixel-cyan: #22d3ee;
+      --pixel-purple: #a855f7;
+      --pixel-pink: #f43f5e;
+      --pixel-gold: #fbbf24;
+      --pixel-green: #4ade80;
+    }
+
+    * {
+      box-sizing: border-box;
+      user-select: none;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      background-color: var(--bg-dark);
+      font-family: 'IBM Plex Sans Arabic', sans-serif;
+      color: #f8fafc;
+    }
+
+    .pixel-font {
+      font-family: 'Silkscreen', 'IBM Plex Sans Arabic', monospace;
+    }
+
+    #game-wrap {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    canvas#gameCanvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    .scanlines {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 5;
+      background: repeating-linear-gradient(
+        to bottom,
+        rgba(255, 255, 255, 0) 0px,
+        rgba(255, 255, 255, 0) 2px,
+        rgba(0, 0, 0, 0.16) 3px,
+        rgba(0, 0, 0, 0.16) 4px
+      );
+    }
+
+    .hud-top {
+      position: fixed;
+      top: 12px;
+      left: 12px;
+      right: 12px;
+      z-index: 15;
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 10px;
+      pointer-events: none;
+    }
+
+    .hud-group {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      align-items: center;
+      pointer-events: auto;
+    }
+
+    .pixel-box {
+      background: rgba(10, 14, 29, 0.92);
+      border: 3px solid var(--pixel-cyan);
+      box-shadow:
+        0 0 0 2px #05070f,
+        inset 0 0 0 2px rgba(34, 211, 238, 0.2),
+        0 4px 0 #05070f;
+      padding: 7px 12px;
+      border-radius: 0;
+    }
+
+    .pixel-box.gold {
+      border-color: var(--pixel-gold);
+      box-shadow:
+        0 0 0 2px #05070f,
+        inset 0 0 0 2px rgba(251, 191, 36, 0.2),
+        0 4px 0 #05070f;
+    }
+
+    .hud-label {
+      font-size: 11px;
+      color: #94a3b8;
+      display: block;
+      line-height: 1.1;
+    }
+
+    .hud-val {
+      font-size: 15px;
+      font-weight: 700;
+      color: #fff;
+      line-height: 1.25;
+    }
+
+    .hearts {
+      display: flex;
+      gap: 4px;
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    .heart-lost {
+      opacity: 0.22;
+      filter: grayscale(1);
+    }
+
+    .stage-bar-wrap {
+      position: fixed;
+      top: 74px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: min(380px, 82vw);
+      z-index: 10;
+      pointer-events: none;
+      text-align: center;
+    }
+
+    .stage-badge {
+      display: inline-block;
+      background: #111827;
+      border: 2px solid var(--pixel-purple);
+      box-shadow: 0 3px 0 #05070f;
+      padding: 3px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #e9d5ff;
+      margin-bottom: 5px;
+    }
+
+    .progress-track {
+      height: 12px;
+      background: #0b0f1d;
+      border: 3px solid #334155;
+      box-shadow: 0 3px 0 #05070f;
+      padding: 1px;
+    }
+
+    .progress-fill {
+      height: 100%;
+      width: 0%;
+      background: repeating-linear-gradient(
+        90deg,
+        var(--pixel-cyan) 0px,
+        var(--pixel-cyan) 10px,
+        #0284c7 10px,
+        #0284c7 14px
+      );
+      transition: width 0.12s steps(10);
+    }
+
+    .toast-banner {
+      position: fixed;
+      top: 126px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-8px);
+      z-index: 16;
+      pointer-events: none;
+      opacity: 0;
+      transition: all 0.2s steps(4);
+      background: rgba(15, 23, 42, 0.96);
+      border: 3px solid var(--pixel-gold);
+      box-shadow: 0 4px 0 #05070f;
+      padding: 6px 14px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--pixel-gold);
+      white-space: nowrap;
+    }
+
+    .toast-banner.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    .overlay-screen {
+      position: fixed;
+      inset: 0;
+      z-index: 20;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      padding: 76px 16px 24px;
+      background: radial-gradient(circle at 50% 50%, rgba(34, 211, 238, 0.12), rgba(7, 9, 19, 0.88) 72%);
+      transition: opacity 0.3s ease, transform 0.3s ease;
+    }
+
+    .overlay-screen.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(1.05);
+    }
+
+    .portal-header {
+      text-align: center;
+      z-index: 2;
+      max-width: 640px;
+    }
+
+    .club-tag {
+      display: inline-block;
+      background: #172554;
+      border: 2px solid var(--pixel-cyan);
+      box-shadow: 0 3px 0 #05070f;
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 700;
+      color: #67e8f9;
+      margin-bottom: 8px;
+    }
+
+    .main-title {
+      margin: 0;
+      font-size: clamp(22px, 4.5vw, 38px);
+      font-weight: 700;
+      line-height: 1.25;
+      color: #ffffff;
+      text-shadow:
+        3px 3px 0 #7e22ce,
+        -2px -2px 0 #0891b2,
+        0 6px 0 #05070f;
+    }
+
+    .sub-caption {
+      margin: 8px auto 0;
+      font-size: clamp(13px, 2.2vw, 15px);
+      color: #cbd5e1;
+      max-width: 520px;
+    }
+
+    .portal-stage {
+      position: relative;
+      width: min(210px, 52vw);
+      height: min(210px, 52vw);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      z-index: 3;
+    }
+
+    #portalCanvas {
+      width: 100%;
+      height: 100%;
+      image-rendering: pixelated;
+      image-rendering: crisp-edges;
+    }
+
+    .portal-hint {
+      position: absolute;
+      bottom: -8px;
+      background: rgba(15, 23, 42, 0.95);
+      border: 2px solid var(--pixel-pink);
+      box-shadow: 0 3px 0 #05070f;
+      padding: 3px 10px;
+      font-size: 11px;
+      font-weight: 700;
+      color: #fda4af;
+      animation: blinkText 1.1s steps(2, start) infinite;
+      white-space: nowrap;
+    }
+
+    @keyframes blinkText {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.35; }
+    }
+
+    .start-controls {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      z-index: 3;
+      width: 100%;
+      max-width: 520px;
+    }
+
+    .pixel-btn-row {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 12px;
+      width: 100%;
+    }
+
+    .pixel-btn {
+      position: relative;
+      border-radius: 0;
+      border: 3px solid #ffffff;
+      font-family: 'Silkscreen', 'IBM Plex Sans Arabic', sans-serif;
+      font-weight: 700;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: transform 0.06s steps(2), filter 0.1s;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+
+    .pixel-btn.primary {
+      background: linear-gradient(180deg, #22d3ee 0%, #0284c7 100%);
+      color: #04101c;
+      font-size: clamp(14px, 2.6vw, 18px);
+      padding: 12px 24px;
+      box-shadow:
+        0 0 0 3px #05070f,
+        0 6px 0 #0369a1,
+        0 9px 0 #05070f;
+    }
+
+    .pixel-btn.primary:hover {
+      filter: brightness(1.12);
+    }
+
+    .pixel-btn.primary:active {
+      transform: translateY(5px);
+      box-shadow:
+        0 0 0 3px #05070f,
+        0 1px 0 #0369a1,
+        0 4px 0 #05070f;
+    }
+
+    .pixel-btn.secondary {
+      background: linear-gradient(180deg, #c084fc 0%, #7e22ce 100%);
+      color: #ffffff;
+      font-size: clamp(13px, 2.2vw, 15px);
+      padding: 12px 18px;
+      box-shadow:
+        0 0 0 3px #05070f,
+        0 6px 0 #581c87,
+        0 9px 0 #05070f;
+    }
+
+    .pixel-btn.secondary:hover {
+      filter: brightness(1.12);
+    }
+
+    .pixel-btn.secondary:active {
+      transform: translateY(5px);
+      box-shadow:
+        0 0 0 3px #05070f,
+        0 1px 0 #581c87,
+        0 4px 0 #05070f;
+    }
+
+    .pixel-btn.ghost {
+      background: #111827;
+      color: #e2e8f0;
+      border-color: #94a3b8;
+      font-size: 12px;
+      padding: 8px 12px;
+      box-shadow:
+        0 0 0 3px #05070f,
+        0 4px 0 #1e293b;
+    }
+
+    .pixel-btn.ghost:active {
+      transform: translateY(3px);
+      box-shadow:
+        0 0 0 3px #05070f,
+        0 1px 0 #1e293b;
+    }
+
+    .controls-legend {
+      font-size: 12px;
+      color: #cbd5e1;
+      background: rgba(10, 14, 29, 0.85);
+      border: 2px solid #334155;
+      padding: 6px 12px;
+      text-align: center;
+    }
+
+    .end-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 25;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      background: rgba(4, 6, 15, 0.85);
+    }
+
+    .end-modal.active {
+      display: flex;
+    }
+
+    .end-card {
+      width: min(500px, 94vw);
+      background: #0d1326;
+      border: 4px solid var(--pixel-gold);
+      box-shadow:
+        0 0 0 4px #05070f,
+        0 10px 0 #05070f;
+      padding: 22px 20px;
+      text-align: center;
+    }
+
+    .end-badge {
+      display: inline-block;
+      background: #422006;
+      border: 2px solid var(--pixel-gold);
+      color: #fde047;
+      padding: 3px 10px;
+      font-size: 12px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    .end-title {
+      margin: 0 0 8px;
+      font-size: clamp(20px, 4vw, 28px);
+      color: #fff;
+      text-shadow: 2px 2px 0 #9333ea;
+    }
+
+    .end-desc {
+      margin: 0 0 14px;
+      font-size: 14px;
+      color: #cbd5e1;
+      line-height: 1.6;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-bottom: 14px;
+    }
+
+    .stat-cell {
+      background: #070b17;
+      border: 2px solid #334155;
+      padding: 8px 6px;
+    }
+
+    .stat-num {
+      font-size: 18px;
+      font-weight: 700;
+      color: var(--pixel-cyan);
+    }
+
+    .stat-lbl {
+      font-size: 11px;
+      color: #94a3b8;
+    }
+
+    .camp-box {
+      background: #111936;
+      border: 2px solid var(--pixel-cyan);
+      padding: 10px;
+      margin-bottom: 16px;
+      font-size: 13px;
+      color: #e0f2fe;
+      line-height: 1.6;
+    }
+
+    .touch-controls {
+      position: fixed;
+      bottom: 14px;
+      left: 14px;
+      right: 14px;
+      z-index: 15;
+      display: none;
+      justify-content: space-between;
+      align-items: center;
+      pointer-events: none;
+    }
+
+    .touch-btn {
+      pointer-events: auto;
+      width: 58px;
+      height: 58px;
+      background: rgba(15, 23, 42, 0.9);
+      border: 3px solid var(--pixel-cyan);
+      box-shadow: 0 4px 0 #05070f;
+      color: #fff;
+      font-size: 20px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+    }
+
+    .touch-btn:active {
+      transform: translateY(3px);
+      background: rgba(34, 211, 238, 0.25);
+    }
+
+    @media (max-width: 768px) {
+      .touch-controls.playing {
+        display: flex;
+      }
+      .hud-top {
+        top: 8px;
+        left: 8px;
+        right: 8px;
+      }
+      .pixel-box {
+        padding: 5px 8px;
+      }
+      .hud-val {
+        font-size: 13px;
+      }
+      .stage-bar-wrap {
+        top: 62px;
+      }
+      .toast-banner {
+        top: 112px;
+        font-size: 12px;
+      }
+      .overlay-screen {
+        padding-top: 68px;
+        gap: 14px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="game-wrap">
+    <canvas id="gameCanvas"></canvas>
+    <div class="scanlines"></div>
+
+    <div class="hud-top">
+      <div class="hud-group">
+        <div class="pixel-box gold">
+          <span class="hud-label">النقاط / SCORE</span>
+          <span id="scoreVal" class="hud-val pixel-font">0000</span>
+        </div>
+        <div class="pixel-box">
+          <span class="hud-label">الطاقة / HP</span>
+          <div id="heartsVal" class="hearts">
+            <span>♥</span><span>♥</span><span>♥</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="hud-group">
+        <div class="pixel-box">
+          <span class="hud-label">الأيقونات</span>
+          <span id="itemsVal" class="hud-val pixel-font">0</span>
+        </div>
+        <button id="soundToggle" type="button" class="pixel-btn ghost" title="تشغيل/كتم الصوت">
+          🔊 SFX
+        </button>
+      </div>
+    </div>
+
+    <div id="stageBar" class="stage-bar-wrap">
+      <div id="stageBadge" class="stage-badge">STAGE 1 • 30 NOV — التخطيط وصناعة الفكرة</div>
+      <div class="progress-track">
+        <div id="progressFill" class="progress-fill"></div>
+      </div>
+    </div>
+
+    <div id="toastBanner" class="toast-banner"></div>
+
+    <div id="startOverlay" class="overlay-screen">
+      <div class="portal-header">
+        <div class="club-tag">نادي طويق بجامعة نجران • مسار الإعلام الرقمي</div>
+        <h1 class="main-title">معسكر صناعة الإعلام الرقمي</h1>
+        <p class="sub-caption">
+          اعبر بوابة الأبعاد، اجمع عناصر الفكرة والـ AI والتصميم، وتجاوز عقبات الإبداع نحو خط النهاية!
+        </p>
+      </div>
+
+      <div id="portalTrigger" class="portal-stage" title="اضغط للدخول عبر البوابة">
+        <canvas id="portalCanvas" width="96" height="96"></canvas>
+        <div class="portal-hint pixel-font">CLICK PORTAL</div>
+      </div>
+
+      <div class="start-controls">
+        <div class="pixel-btn-row">
+          <button id="startBtn" type="button" class="pixel-btn primary">
+            <span>►</span>
+            <span>PRESS START</span>
+          </button>
+          <button id="demoWarpBtn" type="button" class="pixel-btn secondary">
+            <span>⚡</span>
+            <span>WARP RUN</span>
+          </button>
+        </div>
+        <div class="controls-legend">
+          الحركة: <b>← / →</b> أو <b>A / D</b> أو <b>السحب للمس</b> • القفز: <b>↑ / W / Space</b>
+        </div>
+      </div>
+    </div>
+
+    <div id="touchControls" class="touch-controls">
+      <div class="hud-group">
+        <button id="btnLeft" type="button" class="touch-btn">◀</button>
+        <button id="btnRight" type="button" class="touch-btn">▶</button>
+      </div>
+      <button id="btnJump" type="button" class="touch-btn" style="border-color: var(--pixel-gold); color: var(--pixel-gold);">▲</button>
+    </div>
+
+    <div id="endModal" class="end-modal">
+      <div class="end-card">
+        <div id="endBadge" class="end-badge">MISSION COMPLETE</div>
+        <h2 id="endTitle" class="end-title">قريبًا.. رحلة الإعلام الرقمي!</h2>
+        <p id="endDesc" class="end-desc">
+          جمعتِ أدوات صناعة المحتوى الذكي وأتممتِ رحلة الركض بنجاح. استعدي للمعسكر التطبيقي!
+        </p>
+
+        <div class="stats-grid">
+          <div class="stat-cell">
+            <div id="finalScore" class="stat-num pixel-font">0</div>
+            <div class="stat-lbl">النقاط</div>
+          </div>
+          <div class="stat-cell">
+            <div id="finalItems" class="stat-num pixel-font">0</div>
+            <div class="stat-lbl">الأيقونات</div>
+          </div>
+          <div class="stat-cell">
+            <div id="finalStage" class="stat-num pixel-font">1/4</div>
+            <div class="stat-lbl">المرحلة</div>
+          </div>
+        </div>
+
+        <div class="camp-box">
+          <b>معسكر صناعة الإعلام الرقمي</b><br />
+          📅 30 نوفمبر – 3 ديسمبر 2026م • ⏰ 6:00 – 7:30 مساءً<br />
+          🌐 أونلاين عبر Google Meet • 🏆 تكريم أفضل المشاريع
+        </div>
+
+        <div class="pixel-btn-row">
+          <button id="replayBtn" type="button" class="pixel-btn primary" style="font-size: 14px; padding: 11px 18px;">
+            ↻ PLAY AGAIN
+          </button>
+          <button id="shareBtn" type="button" class="pixel-btn secondary" style="font-size: 13px; padding: 11px 16px;">
+            📋 نسخ النتيجة
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    class PixelAudio {
+      constructor() {
+        this.ctx = null;
+        this.enabled = true;
+      }
+
+      unlock() {
+        if (!this.enabled) return;
+        if (!this.ctx) {
+          const AudioCtx = window.AudioContext || window.webkitAudioContext;
+          if (AudioCtx) this.ctx = new AudioCtx();
+        }
+        if (this.ctx && this.ctx.state === 'suspended') {
+          this.ctx.resume().catch(() => {});
+        }
+      }
+
+      tone(freq, duration, type = 'square', gainVal = 0.07, delay = 0) {
+        if (!this.enabled || !this.ctx) return;
+        const now = this.ctx.currentTime + delay;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = type;
+        osc.frequency.setValueAtTime(freq, now);
+        gain.gain.setValueAtTime(gainVal, now);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+        osc.connect(gain);
+        gain.connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + duration);
+      }
+
+      portalWarp() {
+        this.unlock();
+        const notes = [220, 330, 440, 587, 784, 1046];
+        notes.forEach((n, i) => this.tone(n, 0.08, 'square', 0.06, i * 0.045));
+      }
+
+      jump() {
+        this.unlock();
+        this.tone(240, 0.06, 'square', 0.06, 0);
+        this.tone(480, 0.09, 'square', 0.06, 0.05);
+      }
+
+      collect() {
+        this.unlock();
+        this.tone(660, 0.06, 'square', 0.07, 0);
+        this.tone(990, 0.09, 'square', 0.07, 0.055);
+      }
+
+      powerup() {
+        this.unlock();
+        [523, 659, 784, 1046].forEach((n, idx) => {
+          this.tone(n, 0.08, 'square', 0.07, idx * 0.05);
+        });
+      }
+
+      hit() {
+        this.unlock();
+        this.tone(190, 0.12, 'sawtooth', 0.09, 0);
+        this.tone(110, 0.16, 'square', 0.08, 0.08);
+      }
+
+      stageClear() {
+        this.unlock();
+        [587, 784, 988, 1175].forEach((n, idx) => {
+          this.tone(n, 0.1, 'square', 0.07, idx * 0.07);
+        });
+      }
+    }
+
+    const sfx = new PixelAudio();
+
+    const STAGES = [
+      {
+        name: 'STAGE 1 • 30 NOV — التخطيط وصناعة الفكرة',
+        skyTop: '#070b1c',
+        skyBottom: '#172554',
+        roadBase: '#111827',
+        roadStripe: '#22d3ee',
+        wallGlow: '#22d3ee',
+        targetScore: 450
+      },
+      {
+        name: 'STAGE 2 • 1 DEC — الذكاء الاصطناعي وتوليد الصور',
+        skyTop: '#120826',
+        skyBottom: '#4c1d95',
+        roadBase: '#18102b',
+        roadStripe: '#c084fc',
+        wallGlow: '#a855f7',
+        targetScore: 1000
+      },
+      {
+        name: 'STAGE 3 • 2 DEC — أساسيات التصميم والنشر',
+        skyTop: '#24091d',
+        skyBottom: '#831843',
+        roadBase: '#24101c',
+        roadStripe: '#fb7185',
+        wallGlow: '#f43f5e',
+        targetScore: 1650
+      },
+      {
+        name: 'STAGE 4 • 3 DEC — تسليم المشروع والختام',
+        skyTop: '#1c1305',
+        skyBottom: '#78350f',
+        roadBase: '#1f1608',
+        roadStripe: '#fbbf24',
+        wallGlow: '#f59e0b',
+        targetScore: 2350
+      }
+    ];
+
+    const COLLECTIBLE_TYPES = [
+      { icon: '💡', label: 'فكرة واضحة +100', pts: 100, color: '#fde047' },
+      { icon: '🤖', label: 'AI Prompt +120', pts: 120, color: '#67e8f9' },
+      { icon: '🎨', label: 'تصميم متقن +140', pts: 140, color: '#f9a8d4' },
+      { icon: '⚡', label: 'AI OVERDRIVE!', pts: 150, color: '#fbbf24', overdrive: true }
+    ];
+
+    const OBSTACLE_LABELS = ['تشتت', 'نقص أفكار', 'عشوائية', 'تأجيل'];
+
+    const portalCanvas = document.getElementById('portalCanvas');
+    const pCtx = portalCanvas.getContext('2d');
+    let portalTick = 0;
+
+    function drawPixelPortal() {
+      const w = portalCanvas.width;
+      const h = portalCanvas.height;
+      pCtx.clearRect(0, 0, w, h);
+
+      const cx = w / 2;
+      const cy = h / 2;
+      portalTick += 0.08;
+
+      const rings = [
+        { r: 38, color: '#22d3ee', step: Math.PI / 8, rot: portalTick },
+        { r: 29, color: '#a855f7', step: Math.PI / 6, rot: -portalTick * 1.3 },
+        { r: 20, color: '#f43f5e', step: Math.PI / 4, rot: portalTick * 1.7 }
+      ];
+
+      rings.forEach(ring => {
+        for (let a = 0; a < Math.PI * 2; a += ring.step) {
+          const px = Math.round((cx + Math.cos(a + ring.rot) * ring.r) / 4) * 4;
+          const py = Math.round((cy + Math.sin(a + ring.rot) * ring.r) / 4) * 4;
+          pCtx.fillStyle = ring.color;
+          pCtx.fillRect(px - 2, py - 2, 5, 5);
+        }
+      });
+
+      const pulse = Math.sin(portalTick * 2) * 3;
+      const coreSize = Math.max(16, Math.round((24 + pulse) / 4) * 4);
+      pCtx.fillStyle = '#090d1e';
+      pCtx.fillRect(cx - coreSize / 2, cy - coreSize / 2, coreSize, coreSize);
+
+      pCtx.strokeStyle = '#67e8f9';
+      pCtx.lineWidth = 2;
+      pCtx.strokeRect(cx - coreSize / 2 + 1, cy - coreSize / 2 + 1, coreSize - 2, coreSize - 2);
+
+      for (let i = 0; i < 8; i++) {
+        const ang = portalTick * 2.2 + i * 0.8;
+        const dist = 4 + ((i * 5 + Math.floor(portalTick * 10)) % 10);
+        const sx = Math.round((cx + Math.cos(ang) * dist) / 4) * 4;
+        const sy = Math.round((cy + Math.sin(ang) * dist) / 4) * 4;
+        pCtx.fillStyle = i % 2 === 0 ? '#fde047' : '#22d3ee';
+        pCtx.fillRect(sx, sy, 4, 4);
+      }
+    }
+
+    const canvas = document.getElementById('gameCanvas');
+    const ctx = canvas.getContext('2d');
+
+    const scoreEl = document.getElementById('scoreVal');
+    const itemsEl = document.getElementById('itemsVal');
+    const heartsEl = document.getElementById('heartsVal');
+    const stageBadgeEl = document.getElementById('stageBadge');
+    const progressFillEl = document.getElementById('progressFill');
+    const toastEl = document.getElementById('toastBanner');
+    const startOverlayEl = document.getElementById('startOverlay');
+    const touchControlsEl = document.getElementById('touchControls');
+    const endModalEl = document.getElementById('endModal');
+
+    let viewW = 0;
+    let viewH = 0;
+    let dpr = 1;
+
+    function resize() {
+      dpr = Math.min(window.devicePixelRatio || 1, 2);
+      viewW = window.innerWidth;
+      viewH = window.innerHeight;
+      canvas.width = Math.floor(viewW * dpr);
+      canvas.height = Math.floor(viewH * dpr);
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    window.addEventListener('resize', resize);
+    resize();
+
+    const state = {
+      mode: 'portal',
+      warpProgress: 0,
+      lane: 1,
+      laneVisual: 1,
+      jumpZ: 0,
+      jumpVel: 0,
+      score: 0,
+      items: 0,
+      hp: 3,
+      stageIndex: 0,
+      speed: 0.0115,
+      overdriveTimer: 0,
+      invulnTimer: 0,
+      roadScroll: 0,
+      spawnTimer: 0,
+      runAnim: 0,
+      entities: [],
+      particles: [],
+      stars: []
+    };
+
+    for (let i = 0; i < 65; i++) {
+      state.stars.push({
+        x: Math.random(),
+        y: Math.random() * 0.52,
+        size: Math.random() > 0.75 ? 4 : 2,
+        twinkle: Math.random() * 6.28
+      });
+    }
+
+    let toastTimeout = null;
+    function showToast(msg, color = '#fbbf24') {
+      toastEl.textContent = msg;
+      toastEl.style.color = color;
+      toastEl.style.borderColor = color;
+      toastEl.classList.add('show');
+      clearTimeout(toastTimeout);
+      toastTimeout = setTimeout(() => {
+        toastEl.classList.remove('show');
+      }, 1350);
+    }
+
+    function updateHUD() {
+      scoreEl.textContent = String(Math.floor(state.score)).padStart(4, '0');
+      itemsEl.textContent = String(state.items);
+
+      const heartSpans = heartsEl.querySelectorAll('span');
+      heartSpans.forEach((h, idx) => {
+        if (idx < state.hp) h.classList.remove('heart-lost');
+        else h.classList.add('heart-lost');
+      });
+
+      const st = STAGES[state.stageIndex];
+      stageBadgeEl.textContent = st.name;
+
+      const prevTarget = state.stageIndex === 0 ? 0 : STAGES[state.stageIndex - 1].targetScore;
+      const pct = Math.max(0, Math.min(100, ((state.score - prevTarget) / (st.targetScore - prevTarget)) * 100));
+      progressFillEl.style.width = `${pct}%`;
+    }
+
+    function spawnParticles(x, y, color, count = 10) {
+      for (let i = 0; i < count; i++) {
+        const ang = (Math.PI * 2 * i) / count + Math.random() * 0.5;
+        const spd = 2 + Math.random() * 4.5;
+        state.particles.push({
+          x,
+          y,
+          vx: Math.cos(ang) * spd,
+          vy: Math.sin(ang) * spd - 1.5,
+          size: Math.random() > 0.5 ? 6 : 4,
+          color,
+          life: 24 + Math.random() * 12
+        });
+      }
+    }
+
+    function beginWarp(fastStart = false) {
+      if (state.mode === 'warping' || state.mode === 'playing') return;
+      sfx.portalWarp();
+      state.mode = 'warping';
+      state.warpProgress = 0;
+      state.lane = 1;
+      state.laneVisual = 1;
+      state.jumpZ = 0;
+      state.jumpVel = 0;
+      state.score = 0;
+      state.items = 0;
+      state.hp = 3;
+      state.stageIndex = 0;
+      state.speed = fastStart ? 0.0155 : 0.0115;
+      state.overdriveTimer = fastStart ? 180 : 0;
+      state.invulnTimer = 45;
+      state.entities = [];
+      state.particles = [];
+      endModalEl.classList.remove('active');
+      startOverlayEl.classList.add('hidden');
+      updateHUD();
+      if (fastStart) {
+        showToast('⚡ WARP START! اندفاع سريع', '#22d3ee');
+      }
+    }
+
+    function finishGame(victory) {
+      state.mode = 'ended';
+      touchControlsEl.classList.remove('playing');
+
+      document.getElementById('finalScore').textContent = Math.floor(state.score);
+      document.getElementById('finalItems').textContent = state.items;
+      document.getElementById('finalStage').textContent = `${state.stageIndex + 1}/4`;
+
+      const badge = document.getElementById('endBadge');
+      const title = document.getElementById('endTitle');
+      const desc = document.getElementById('endDesc');
+
+      if (victory) {
+        badge.textContent = '★ ALL STAGES CLEARED ★';
+        badge.style.background = '#083344';
+        badge.style.borderColor = '#22d3ee';
+        badge.style.color = '#67e8f9';
+        title.textContent = 'قريبًا.. معسكر صناعة الإعلام الرقمي!';
+        desc.textContent = 'أتممتِ رحلة الركض عبر مراحل الفكرة والـ AI والتصميم والتسليم بنجاح! جاهزة للانطلاق؟';
+      } else {
+        badge.textContent = 'RUN FINISHED';
+        badge.style.background = '#4c0519';
+        badge.style.borderColor = '#fb7185';
+        badge.style.color = '#fda4af';
+        title.textContent = 'أقوى بداية تبدأ من محاولة جديدة!';
+        desc.textContent = 'تجاوزي العقبات واجمعي الأيقونات لتصلي إلى خط النهاية في معسكر صناعة الإعلام الرقمي.';
+      }
+
+      endModalEl.classList.add('active');
+    }
+
+    document.getElementById('startBtn').addEventListener('click', () => beginWarp(false));
+    document.getElementById('demoWarpBtn').addEventListener('click', () => beginWarp(true));
+    document.getElementById('portalTrigger').addEventListener('click', () => beginWarp(false));
+    document.getElementById('replayBtn').addEventListener('click', () => beginWarp(false));
+
+    document.getElementById('soundToggle').addEventListener('click', (e) => {
+      sfx.enabled = !sfx.enabled;
+      if (sfx.enabled) sfx.unlock();
+      e.currentTarget.textContent = sfx.enabled ? '🔊 SFX' : '🔇 MUTE';
+    });
+
+    document.getElementById('shareBtn').addEventListener('click', async () => {
+      const txt = `🎮 جمعت ${Math.floor(state.score)} نقطة و ${state.items} أيقونة في لعبة معسكر صناعة الإعلام الرقمي (نادي طويق - جامعة نجران) ⚡✨`;
+      try {
+        await navigator.clipboard.writeText(txt);
+        showToast('تم نسخ النتيجة للمشاركة!', '#4ade80');
+      } catch {
+        showToast('جاهز للنسخ: ' + Math.floor(state.score) + ' نقطة', '#4ade80');
+      }
+    });
+
+    function moveLane(dir) {
+      if (state.mode !== 'playing') return;
+      state.lane = Math.max(0, Math.min(2, state.lane + dir));
+      sfx.tone(330, 0.035, 'square', 0.04, 0);
+    }
+
+    function jumpPlayer() {
+      if (state.mode !== 'playing') return;
+      if (state.jumpZ <= 0.5) {
+        state.jumpVel = 13.5;
+        sfx.jump();
+      }
+    }
+
+    window.addEventListener('keydown', (e) => {
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'Space', ' '].includes(e.key)) {
+        e.preventDefault();
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') moveLane(-1);
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') moveLane(1);
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') jumpPlayer();
+      if (e.key === 'Enter' && state.mode === 'portal') beginWarp(false);
+    });
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    canvas.addEventListener('touchstart', (e) => {
+      if (!e.touches.length) return;
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+
+    canvas.addEventListener('touchend', (e) => {
+      if (state.mode !== 'playing' || !e.changedTouches.length) return;
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = e.changedTouches[0].clientY - touchStartY;
+      if (Math.abs(dx) > 26 && Math.abs(dx) > Math.abs(dy)) {
+        moveLane(dx > 0 ? 1 : -1);
+      } else if (dy < -28) {
+        jumpPlayer();
+      }
+    }, { passive: true });
+
+    document.getElementById('btnLeft').addEventListener('click', () => moveLane(-1));
+    document.getElementById('btnRight').addEventListener('click', () => moveLane(1));
+    document.getElementById('btnJump').addEventListener('click', jumpPlayer);
+
+    function project3D(laneFloat, z) {
+      const horizonY = viewH * 0.34;
+      const bottomY = viewH * 0.94;
+      const t = Math.pow(Math.max(0.01, Math.min(1, z)), 0.72);
+      const y = bottomY - (bottomY - horizonY) * t;
+
+      const halfBottomW = Math.min(viewW * 0.44, 340);
+      const halfTopW = Math.min(viewW * 0.085, 68);
+      const roadHalfW = halfBottomW - (halfBottomW - halfTopW) * t;
+
+      const laneNorm = laneFloat - 1;
+      const x = viewW * 0.5 + laneNorm * roadHalfW * 0.72;
+      const scale = 1 - t * 0.78;
+
+      return { x, y, scale, roadHalfW, t };
+    }
+
+    function spawnEntity() {
+      const lane = Math.floor(Math.random() * 3);
+      const roll = Math.random();
+      if (roll < 0.45) {
+        const typeIdx = Math.random() < 0.14 ? 3 : Math.floor(Math.random() * 3);
+        state.entities.push({
+          kind: 'item',
+          lane,
+          z: 0.98,
+          airborne: Math.random() < 0.25,
+          type: COLLECTIBLE_TYPES[typeIdx]
+        });
+      } else {
+        const label = OBSTACLE_LABELS[Math.floor(Math.random() * OBSTACLE_LABELS.length)];
+        state.entities.push({
+          kind: 'obstacle',
+          lane,
+          z: 0.98,
+          label
+        });
+      }
+    }
+
+    function drawPixelRunner(x, y, scale, jumpOffset, runPhase, overdrive) {
+      const p = Math.max(2, Math.round(5 * scale));
+      const baseX = Math.round((x - p * 4) / p) * p;
+      const baseY = Math.round((y - jumpOffset - p * 11) / p) * p;
+
+      const shadowW = Math.round(p * 7 * (1 - Math.min(0.45, jumpOffset / 160)));
+      const shadowH = Math.max(3, Math.round(p * 1.4));
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(Math.round(x - shadowW / 2), Math.round(y - shadowH / 2), shadowW, shadowH);
+
+      if (overdrive) {
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = Math.max(2, Math.round(3 * scale));
+        ctx.strokeRect(baseX - p, baseY - p, p * 10, p * 12);
+      }
+
+      const legSwing = Math.round(Math.sin(runPhase) * 2) * p;
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(baseX + p * 2, baseY + p * 8 + Math.max(0, legSwing), p * 1.6, p * 3);
+      ctx.fillRect(baseX + p * 4.4, baseY + p * 8 + Math.max(0, -legSwing), p * 1.6, p * 3);
+      ctx.fillStyle = '#22d3ee';
+      ctx.fillRect(baseX + p * 2, baseY + p * 10 + Math.max(0, legSwing), p * 1.8, p * 1.2);
+      ctx.fillRect(baseX + p * 4.2, baseY + p * 10 + Math.max(0, -legSwing), p * 1.8, p * 1.2);
+
+      ctx.fillStyle = overdrive ? '#f59e0b' : '#7e22ce';
+      ctx.fillRect(baseX + p * 1.5, baseY + p * 4, p * 5, p * 4.2);
+
+      ctx.fillStyle = '#22d3ee';
+      ctx.fillRect(baseX + p * 3.5, baseY + p * 5, p, p * 2.5);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(baseX + p * 1.5, baseY, p * 5, p * 4);
+      ctx.fillStyle = '#c084fc';
+      ctx.fillRect(baseX + p * 2, baseY + p * 0.6, p * 4, p * 2.4);
+    }
+
+    function update() {
+      drawPixelPortal();
+
+      const st = STAGES[state.stageIndex];
+      state.runAnim += 0.28;
+
+      if (state.mode === 'warping') {
+        state.warpProgress += 0.032;
+        if (state.warpProgress >= 1) {
+          state.mode = 'playing';
+          touchControlsEl.classList.add('playing');
+          showToast(st.name, st.roadStripe);
+        }
+        return;
+      }
+
+      if (state.mode !== 'playing') return;
+
+      state.laneVisual += (state.lane - state.laneVisual) * 0.24;
+
+      if (state.jumpZ > 0 || state.jumpVel !== 0) {
+        state.jumpZ += state.jumpVel;
+        state.jumpVel -= 0.72;
+        if (state.jumpZ <= 0) {
+          state.jumpZ = 0;
+          state.jumpVel = 0;
+        }
+      }
+
+      if (state.overdriveTimer > 0) state.overdriveTimer--;
+      if (state.invulnTimer > 0) state.invulnTimer--;
+
+      const speedMult = state.overdriveTimer > 0 ? 1.45 : 1;
+      state.roadScroll = (state.roadScroll + state.speed * speedMult * 2.4) % 1;
+      state.score += 0.35 * speedMult;
+
+      if (state.score >= st.targetScore) {
+        if (state.stageIndex < STAGES.length - 1) {
+          state.stageIndex++;
+          state.speed = Math.min(0.021, state.speed + 0.002);
+          sfx.stageClear();
+          showToast('★ ' + STAGES[state.stageIndex].name, STAGES[state.stageIndex].roadStripe);
+        } else {
+          sfx.stageClear();
+          finishGame(true);
+          return;
+        }
+      }
+
+      state.spawnTimer++;
+      const spawnGap = Math.max(24, 46 - state.stageIndex * 5);
+      if (state.spawnTimer >= spawnGap) {
+        state.spawnTimer = 0;
+        spawnEntity();
+      }
+
+      const playerProj = project3D(state.laneVisual, 0);
+      for (let i = state.entities.length - 1; i >= 0; i--) {
+        const ent = state.entities[i];
+        ent.z -= state.speed * speedMult;
+
+        if (ent.kind === 'item' && state.overdriveTimer > 0 && ent.z < 0.55) {
+          ent.lane += (state.lane - ent.lane) * 0.16;
+        }
+
+        if (ent.z <= 0.11 && ent.z >= -0.02) {
+          const laneDiff = Math.abs(ent.lane - state.lane);
+          if (laneDiff < 0.45) {
+            const pPos = project3D(ent.lane, Math.max(0.02, ent.z));
+            if (ent.kind === 'item') {
+              const pts = ent.type.pts * (state.overdriveTimer > 0 ? 2 : 1);
+              state.score += pts;
+              state.items += 1;
+              sfx.collect();
+              spawnParticles(pPos.x, pPos.y - 16, ent.type.color, 12);
+              showToast(`${ent.type.icon} ${ent.type.label}`, ent.type.color);
+
+              if (ent.type.overdrive) {
+                state.overdriveTimer = 260;
+                sfx.powerup();
+              }
+              state.entities.splice(i, 1);
+              continue;
+            } else if (ent.kind === 'obstacle') {
+              if (state.overdriveTimer > 0) {
+                state.score += 80;
+                sfx.collect();
+                spawnParticles(pPos.x, pPos.y - 16, '#fbbf24', 14);
+                showToast('💥 تم تجاوز العائق!', '#fbbf24');
+                state.entities.splice(i, 1);
+                continue;
+              } else if (!ent.airborne || state.jumpZ < 32) {
+                if (state.invulnTimer <= 0) {
+                  state.hp -= 1;
+                  state.invulnTimer = 65;
+                  sfx.hit();
+                  spawnParticles(playerProj.x, playerProj.y - 24, '#f43f5e', 16);
+                  showToast(`⚠ ${ent.label}!`, '#fb7185');
+                  state.entities.splice(i, 1);
+                  if (state.hp <= 0) {
+                    updateHUD();
+                    finishGame(false);
+                    return;
+                  }
+                  continue;
+                }
+              }
+            }
+          }
+        }
+
+        if (ent.z < -0.15) {
+          state.entities.splice(i, 1);
+        }
+      }
+
+      for (let i = state.particles.length - 1; i >= 0; i--) {
+        const pt = state.particles[i];
+        pt.x += pt.vx;
+        pt.y += pt.vy;
+        pt.vy += 0.18;
+        pt.life--;
+        if (pt.life <= 0) state.particles.splice(i, 1);
+      }
+
+      updateHUD();
+    }
+
+    function render() {
+      const st = STAGES[state.stageIndex];
+
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, viewH * 0.45);
+      skyGrad.addColorStop(0, st.skyTop);
+      skyGrad.addColorStop(1, st.skyBottom);
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, viewW, viewH);
+
+      state.stars.forEach(s => {
+        s.twinkle += 0.05;
+        const alpha = 0.35 + Math.sin(s.twinkle) * 0.35;
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha.toFixed(2)})`;
+        const sx = Math.round(s.x * viewW);
+        const sy = Math.round(s.y * viewH);
+        ctx.fillRect(sx, sy, s.size, s.size);
+      });
+
+      const horizonY = Math.round(viewH * 0.34);
+      const cityStep = 36;
+      for (let bx = 0; bx < viewW; bx += cityStep) {
+        const bh = 22 + ((bx * 17 + state.stageIndex * 29) % 48);
+        ctx.fillStyle = 'rgba(7, 11, 24, 0.78)';
+        ctx.fillRect(bx, horizonY - bh, cityStep - 4, bh);
+        ctx.fillStyle = st.wallGlow;
+        ctx.fillRect(bx + 6, horizonY - bh + 6, 4, 4);
+        ctx.fillRect(bx + 16, horizonY - bh + 12, 4, 4);
+      }
+
+      const bottomY = viewH * 0.94;
+      const halfBottomW = Math.min(viewW * 0.44, 340);
+      const halfTopW = Math.min(viewW * 0.085, 68);
+      const centerX = viewW * 0.5;
+
+      ctx.fillStyle = '#060913';
+      ctx.fillRect(0, horizonY, viewW, viewH - horizonY);
+
+      ctx.fillStyle = st.roadBase;
+      ctx.beginPath();
+      ctx.moveTo(centerX - halfTopW, horizonY);
+      ctx.lineTo(centerX + halfTopW, horizonY);
+      ctx.lineTo(centerX + halfBottomW, bottomY);
+      ctx.lineTo(centerX - halfBottomW, bottomY);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = st.wallGlow;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(centerX - halfTopW, horizonY);
+      ctx.lineTo(centerX - halfBottomW, bottomY);
+      ctx.moveTo(centerX + halfTopW, horizonY);
+      ctx.lineTo(centerX + halfBottomW, bottomY);
+      ctx.stroke();
+
+      [-0.33, 0.33].forEach(offsetRatio => {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(centerX + halfTopW * offsetRatio * 2.1, horizonY);
+        ctx.lineTo(centerX + halfBottomW * offsetRatio * 2.1, bottomY);
+        ctx.stroke();
+      });
+
+      for (let i = 0; i < 9; i++) {
+        const zLine = ((i / 9) + state.roadScroll) % 1;
+        const pLine = project3D(1, zLine);
+        ctx.fillStyle = st.roadStripe;
+        ctx.globalAlpha = 0.18 + pLine.t * 0.55;
+        const barW = Math.max(8, Math.round(pLine.roadHalfW * 0.12));
+        const barH = Math.max(2, Math.round(4 * pLine.scale));
+        ctx.fillRect(Math.round(pLine.x - barW / 2), Math.round(pLine.y), barW, barH);
+      }
+      ctx.globalAlpha = 1;
+
+      const sorted = [...state.entities].sort((a, b) => b.z - a.z);
+      sorted.forEach(ent => {
+        if (ent.z < 0 || ent.z > 1) return;
+        const pos = project3D(ent.lane, ent.z);
+        const floatY = ent.airborne ? 28 * pos.scale : Math.sin(state.runAnim + ent.z * 12) * 5 * pos.scale;
+        const drawY = pos.y - floatY;
+        const boxSize = Math.max(12, Math.round(34 * pos.scale));
+
+        if (ent.kind === 'item') {
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+          ctx.fillRect(Math.round(pos.x - boxSize / 2), Math.round(drawY - boxSize), boxSize, boxSize);
+          ctx.strokeStyle = ent.type.color;
+          ctx.lineWidth = Math.max(2, Math.round(2.5 * pos.scale));
+          ctx.strokeRect(Math.round(pos.x - boxSize / 2), Math.round(drawY - boxSize), boxSize, boxSize);
+
+          ctx.font = `${Math.max(12, Math.round(20 * pos.scale))}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(ent.type.icon, pos.x, drawY - boxSize / 2);
+        } else {
+          const obsW = Math.max(16, Math.round(46 * pos.scale));
+          const obsH = Math.max(14, Math.round(32 * pos.scale));
+          ctx.fillStyle = '#881337';
+          ctx.fillRect(Math.round(pos.x - obsW / 2), Math.round(drawY - obsH), obsW, obsH);
+          ctx.strokeStyle = '#fb7185';
+          ctx.lineWidth = Math.max(2, Math.round(2.5 * pos.scale));
+          ctx.strokeRect(Math.round(pos.x - obsW / 2), Math.round(drawY - obsH), obsW, obsH);
+
+          if (pos.scale > 0.42) {
+            ctx.fillStyle = '#ffe4e6';
+            ctx.font = `700 ${Math.max(10, Math.round(12 * pos.scale))}px "IBM Plex Sans Arabic", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.fillText(ent.label, pos.x, drawY - obsH / 2 + 4);
+          }
+        }
+      });
+
+      if (state.mode === 'playing' || state.mode === 'warping') {
+        const blinkSkip = state.invulnTimer > 0 && Math.floor(state.invulnTimer / 4) % 2 === 0;
+        if (!blinkSkip) {
+          const pPos = project3D(state.laneVisual, 0);
+          drawPixelRunner(
+            pPos.x,
+            pPos.y,
+            1.15,
+            state.jumpZ,
+            state.runAnim,
+            state.overdriveTimer > 0
+          );
+        }
+      }
+
+      state.particles.forEach(pt => {
+        ctx.fillStyle = pt.color;
+        ctx.fillRect(Math.round(pt.x), Math.round(pt.y), pt.size, pt.size);
+      });
+
+      if (state.mode === 'warping') {
+        const wProg = state.warpProgress;
+        ctx.save();
+        ctx.strokeStyle = wProg < 0.5 ? '#22d3ee' : '#c084fc';
+        ctx.lineWidth = 5;
+        const maxR = Math.hypot(viewW, viewH) * 0.6;
+        for (let r = 1; r <= 5; r++) {
+          const rad = ((wProg * 1.4 + r * 0.22) % 1) * maxR;
+          ctx.globalAlpha = Math.max(0, 1 - rad / maxR);
+          ctx.strokeRect(
+            Math.round(viewW / 2 - rad),
+            Math.round(viewH / 2 - rad),
+            Math.round(rad * 2),
+            Math.round(rad * 2)
+          );
+        }
+        ctx.restore();
+      }
+    }
+
+    function loop() {
+      update();
+      render();
+      requestAnimationFrame(loop);
+    }
+
+    updateHUD();
+    loop();
+  </script>
+</body>
+</html>
