@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>معسكر صناعة الإعلام الرقمي — Pixel Arcade Runner</title>
+  <title>البرنامج التدريبي DigiCraft — Pixel Arcade Runner</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Silkscreen:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@500;600;700&display=swap" rel="stylesheet">
@@ -590,7 +590,7 @@
     <div id="startOverlay" class="overlay-screen">
       <div class="portal-header">
         <div class="club-tag">نادي طويق بجامعة نجران • مسار الإعلام الرقمي</div>
-        <h1 class="main-title">معسكر صناعة الإعلام الرقمي</h1>
+        <h1 class="main-title">البرنامج التدريبي DigiCraft</h1>
         <p class="sub-caption">
           اعبر بوابة الأبعاد، اجمع عناصر الفكرة والـ AI والتصميم، وتجاوز عقبات الإبداع نحو خط النهاية!
         </p>
@@ -629,7 +629,7 @@
     <div id="endModal" class="end-modal">
       <div class="end-card">
         <div id="endBadge" class="end-badge">MISSION COMPLETE</div>
-        <h2 id="endTitle" class="end-title">قريبًا.. رحلة الإعلام الرقمي!</h2>
+        <h2 id="endTitle" class="end-title">قريبًا.. رحلة البرنامج التدريبي DigiCraft!</h2>
         <p id="endDesc" class="end-desc">
           جمعتِ أدوات صناعة المحتوى الذكي وأتممتِ رحلة الركض بنجاح. استعدي للمعسكر التطبيقي!
         </p>
@@ -985,7 +985,7 @@
         badge.style.background = '#083344';
         badge.style.borderColor = '#22d3ee';
         badge.style.color = '#67e8f9';
-        title.textContent = 'قريبًا.. معسكر صناعة الإعلام الرقمي!';
+        title.textContent = 'قريبًا.. البرنامج التدريبي DigiCraft!';
         desc.textContent = 'أتممتِ رحلة الركض عبر مراحل الفكرة والـ AI والتصميم والتسليم بنجاح! جاهزة للانطلاق؟';
       } else {
         badge.textContent = 'RUN FINISHED';
@@ -993,7 +993,7 @@
         badge.style.borderColor = '#fb7185';
         badge.style.color = '#fda4af';
         title.textContent = 'أقوى بداية تبدأ من محاولة جديدة!';
-        desc.textContent = 'تجاوزي العقبات واجمعي الأيقونات لتصلي إلى خط النهاية في معسكر صناعة الإعلام الرقمي.';
+        desc.textContent = 'تجاوزي العقبات واجمعي الأيقونات لتصلي إلى خط النهاية في البرنامج التدريبي DigiCraft.';
       }
 
       endModalEl.classList.add('active');
@@ -1011,7 +1011,7 @@
     });
 
     document.getElementById('shareBtn').addEventListener('click', async () => {
-      const txt = `🎮 جمعت ${Math.floor(state.score)} نقطة و ${state.items} أيقونة في لعبة معسكر صناعة الإعلام الرقمي (نادي طويق - جامعة نجران) ⚡✨`;
+      const txt = `🎮 جمعت ${Math.floor(state.score)} نقطة و ${state.items} أيقونة في لعبة البرنامج التدريبي DigiCraft (نادي طويق - جامعة نجران) ⚡✨`;
       try {
         await navigator.clipboard.writeText(txt);
         showToast('تم نسخ النتيجة للمشاركة!', '#4ade80');
