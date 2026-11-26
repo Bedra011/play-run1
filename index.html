@@ -1033,3 +1033,405 @@
         sfx.jump();
       }
     }
+
+    window.addEventListener('keydown', (e) => {
+      if (['ArrowLeft', 'ArrowRight', 'ArrowUp', 'Space', ' '].includes(e.key)) {
+        e.preventDefault();
+      }
+      if (e.key === 'ArrowLeft' || e.key === 'a' || e.key === 'A') moveLane(-1);
+      if (e.key === 'ArrowRight' || e.key === 'd' || e.key === 'D') moveLane(1);
+      if (e.key === 'ArrowUp' || e.key === 'w' || e.key === 'W' || e.key === ' ') jumpPlayer();
+      if (e.key === 'Enter' && state.mode === 'portal') beginWarp(false);
+    });
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+
+    canvas.addEventListener('touchstart', (e) => {
+      if (!e.touches.length) return;
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }, { passive: true });
+
+    canvas.addEventListener('touchend', (e) => {
+      if (state.mode !== 'playing' || !e.changedTouches.length) return;
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = e.changedTouches[0].clientY - touchStartY;
+      if (Math.abs(dx) > 26 && Math.abs(dx) > Math.abs(dy)) {
+        moveLane(dx > 0 ? 1 : -1);
+      } else if (dy < -28) {
+        jumpPlayer();
+      }
+    }, { passive: true });
+
+    document.getElementById('btnLeft').addEventListener('click', () => moveLane(-1));
+    document.getElementById('btnRight').addEventListener('click', () => moveLane(1));
+    document.getElementById('btnJump').addEventListener('click', jumpPlayer);
+
+    function project3D(laneFloat, z) {
+      const horizonY = viewH * 0.34;
+      const bottomY = viewH * 0.94;
+      const t = Math.pow(Math.max(0.01, Math.min(1, z)), 0.72);
+      const y = bottomY - (bottomY - horizonY) * t;
+
+      const halfBottomW = Math.min(viewW * 0.44, 340);
+      const halfTopW = Math.min(viewW * 0.085, 68);
+      const roadHalfW = halfBottomW - (halfBottomW - halfTopW) * t;
+
+      const laneNorm = laneFloat - 1;
+      const x = viewW * 0.5 + laneNorm * roadHalfW * 0.72;
+      const scale = 1 - t * 0.78;
+
+      return { x, y, scale, roadHalfW, t };
+    }
+
+    function spawnEntity() {
+      const lane = Math.floor(Math.random() * 3);
+      const roll = Math.random();
+      if (roll < 0.45) {
+        const typeIdx = Math.random() < 0.14 ? 3 : Math.floor(Math.random() * 3);
+        state.entities.push({
+          kind: 'item',
+          lane,
+          z: 0.98,
+          airborne: Math.random() < 0.25,
+          type: COLLECTIBLE_TYPES[typeIdx]
+        });
+      } else {
+        const label = OBSTACLE_LABELS[Math.floor(Math.random() * OBSTACLE_LABELS.length)];
+        state.entities.push({
+          kind: 'obstacle',
+          lane,
+          z: 0.98,
+          label
+        });
+      }
+    }
+
+    function drawPixelRunner(x, y, scale, jumpOffset, runPhase, overdrive) {
+      const p = Math.max(2, Math.round(5 * scale));
+      const baseX = Math.round((x - p * 4) / p) * p;
+      const baseY = Math.round((y - jumpOffset - p * 11) / p) * p;
+
+      const shadowW = Math.round(p * 7 * (1 - Math.min(0.45, jumpOffset / 160)));
+      const shadowH = Math.max(3, Math.round(p * 1.4));
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(Math.round(x - shadowW / 2), Math.round(y - shadowH / 2), shadowW, shadowH);
+
+      if (overdrive) {
+        ctx.strokeStyle = '#fbbf24';
+        ctx.lineWidth = Math.max(2, Math.round(3 * scale));
+        ctx.strokeRect(baseX - p, baseY - p, p * 10, p * 12);
+      }
+
+      const legSwing = Math.round(Math.sin(runPhase) * 2) * p;
+      ctx.fillStyle = '#1e293b';
+      ctx.fillRect(baseX + p * 2, baseY + p * 8 + Math.max(0, legSwing), p * 1.6, p * 3);
+      ctx.fillRect(baseX + p * 4.4, baseY + p * 8 + Math.max(0, -legSwing), p * 1.6, p * 3);
+      ctx.fillStyle = '#22d3ee';
+      ctx.fillRect(baseX + p * 2, baseY + p * 10 + Math.max(0, legSwing), p * 1.8, p * 1.2);
+      ctx.fillRect(baseX + p * 4.2, baseY + p * 10 + Math.max(0, -legSwing), p * 1.8, p * 1.2);
+
+      ctx.fillStyle = overdrive ? '#f59e0b' : '#7e22ce';
+      ctx.fillRect(baseX + p * 1.5, baseY + p * 4, p * 5, p * 4.2);
+
+      ctx.fillStyle = '#22d3ee';
+      ctx.fillRect(baseX + p * 3.5, baseY + p * 5, p, p * 2.5);
+
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(baseX + p * 1.5, baseY, p * 5, p * 4);
+      ctx.fillStyle = '#c084fc';
+      ctx.fillRect(baseX + p * 2, baseY + p * 0.6, p * 4, p * 2.4);
+    }
+
+    function update() {
+      drawPixelPortal();
+
+      const st = STAGES[state.stageIndex];
+      state.runAnim += 0.28;
+
+      if (state.mode === 'warping') {
+        state.warpProgress += 0.032;
+        if (state.warpProgress >= 1) {
+          state.mode = 'playing';
+          touchControlsEl.classList.add('playing');
+          showToast(st.name, st.roadStripe);
+        }
+        return;
+      }
+
+      if (state.mode !== 'playing') return;
+
+      state.laneVisual += (state.lane - state.laneVisual) * 0.24;
+
+      if (state.jumpZ > 0 || state.jumpVel !== 0) {
+        state.jumpZ += state.jumpVel;
+        state.jumpVel -= 0.72;
+        if (state.jumpZ <= 0) {
+          state.jumpZ = 0;
+          state.jumpVel = 0;
+        }
+      }
+
+      if (state.overdriveTimer > 0) state.overdriveTimer--;
+      if (state.invulnTimer > 0) state.invulnTimer--;
+
+      const speedMult = state.overdriveTimer > 0 ? 1.45 : 1;
+      state.roadScroll = (state.roadScroll + state.speed * speedMult * 2.4) % 1;
+      state.score += 0.35 * speedMult;
+
+      if (state.score >= st.targetScore) {
+        if (state.stageIndex < STAGES.length - 1) {
+          state.stageIndex++;
+          state.speed = Math.min(0.021, state.speed + 0.002);
+          sfx.stageClear();
+          showToast('★ ' + STAGES[state.stageIndex].name, STAGES[state.stageIndex].roadStripe);
+        } else {
+          sfx.stageClear();
+          finishGame(true);
+          return;
+        }
+      }
+
+      state.spawnTimer++;
+      const spawnGap = Math.max(24, 46 - state.stageIndex * 5);
+      if (state.spawnTimer >= spawnGap) {
+        state.spawnTimer = 0;
+        spawnEntity();
+      }
+
+      const playerProj = project3D(state.laneVisual, 0);
+      for (let i = state.entities.length - 1; i >= 0; i--) {
+        const ent = state.entities[i];
+        ent.z -= state.speed * speedMult;
+
+        if (ent.kind === 'item' && state.overdriveTimer > 0 && ent.z < 0.55) {
+          ent.lane += (state.lane - ent.lane) * 0.16;
+        }
+
+        if (ent.z <= 0.11 && ent.z >= -0.02) {
+          const laneDiff = Math.abs(ent.lane - state.lane);
+          if (laneDiff < 0.45) {
+            const pPos = project3D(ent.lane, Math.max(0.02, ent.z));
+            if (ent.kind === 'item') {
+              const pts = ent.type.pts * (state.overdriveTimer > 0 ? 2 : 1);
+              state.score += pts;
+              state.items += 1;
+              sfx.collect();
+              spawnParticles(pPos.x, pPos.y - 16, ent.type.color, 12);
+              showToast(`${ent.type.icon} ${ent.type.label}`, ent.type.color);
+
+              if (ent.type.overdrive) {
+                state.overdriveTimer = 260;
+                sfx.powerup();
+              }
+              state.entities.splice(i, 1);
+              continue;
+            } else if (ent.kind === 'obstacle') {
+              if (state.overdriveTimer > 0) {
+                state.score += 80;
+                sfx.collect();
+                spawnParticles(pPos.x, pPos.y - 16, '#fbbf24', 14);
+                showToast('💥 تم تجاوز العائق!', '#fbbf24');
+                state.entities.splice(i, 1);
+                continue;
+              } else if (!ent.airborne || state.jumpZ < 32) {
+                if (state.invulnTimer <= 0) {
+                  state.hp -= 1;
+                  state.invulnTimer = 65;
+                  sfx.hit();
+                  spawnParticles(playerProj.x, playerProj.y - 24, '#f43f5e', 16);
+                  showToast(`⚠ ${ent.label}!`, '#fb7185');
+                  state.entities.splice(i, 1);
+                  if (state.hp <= 0) {
+                    updateHUD();
+                    finishGame(false);
+                    return;
+                  }
+                  continue;
+                }
+              }
+            }
+          }
+        }
+
+        if (ent.z < -0.15) {
+          state.entities.splice(i, 1);
+        }
+      }
+
+      for (let i = state.particles.length - 1; i >= 0; i--) {
+        const pt = state.particles[i];
+        pt.x += pt.vx;
+        pt.y += pt.vy;
+        pt.vy += 0.18;
+        pt.life--;
+        if (pt.life <= 0) state.particles.splice(i, 1);
+      }
+
+      updateHUD();
+    }
+
+    function render() {
+      const st = STAGES[state.stageIndex];
+
+      const skyGrad = ctx.createLinearGradient(0, 0, 0, viewH * 0.45);
+      skyGrad.addColorStop(0, st.skyTop);
+      skyGrad.addColorStop(1, st.skyBottom);
+      ctx.fillStyle = skyGrad;
+      ctx.fillRect(0, 0, viewW, viewH);
+
+      state.stars.forEach(s => {
+        s.twinkle += 0.05;
+        const alpha = 0.35 + Math.sin(s.twinkle) * 0.35;
+        ctx.fillStyle = `rgba(255, 255, 255, ${alpha.toFixed(2)})`;
+        const sx = Math.round(s.x * viewW);
+        const sy = Math.round(s.y * viewH);
+        ctx.fillRect(sx, sy, s.size, s.size);
+      });
+
+      const horizonY = Math.round(viewH * 0.34);
+      const cityStep = 36;
+      for (let bx = 0; bx < viewW; bx += cityStep) {
+        const bh = 22 + ((bx * 17 + state.stageIndex * 29) % 48);
+        ctx.fillStyle = 'rgba(7, 11, 24, 0.78)';
+        ctx.fillRect(bx, horizonY - bh, cityStep - 4, bh);
+        ctx.fillStyle = st.wallGlow;
+        ctx.fillRect(bx + 6, horizonY - bh + 6, 4, 4);
+        ctx.fillRect(bx + 16, horizonY - bh + 12, 4, 4);
+      }
+
+      const bottomY = viewH * 0.94;
+      const halfBottomW = Math.min(viewW * 0.44, 340);
+      const halfTopW = Math.min(viewW * 0.085, 68);
+      const centerX = viewW * 0.5;
+
+      ctx.fillStyle = '#060913';
+      ctx.fillRect(0, horizonY, viewW, viewH - horizonY);
+
+      ctx.fillStyle = st.roadBase;
+      ctx.beginPath();
+      ctx.moveTo(centerX - halfTopW, horizonY);
+      ctx.lineTo(centerX + halfTopW, horizonY);
+      ctx.lineTo(centerX + halfBottomW, bottomY);
+      ctx.lineTo(centerX - halfBottomW, bottomY);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.strokeStyle = st.wallGlow;
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.moveTo(centerX - halfTopW, horizonY);
+      ctx.lineTo(centerX - halfBottomW, bottomY);
+      ctx.moveTo(centerX + halfTopW, horizonY);
+      ctx.lineTo(centerX + halfBottomW, bottomY);
+      ctx.stroke();
+
+      [-0.33, 0.33].forEach(offsetRatio => {
+        ctx.strokeStyle = 'rgba(255, 255, 255, 0.16)';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(centerX + halfTopW * offsetRatio * 2.1, horizonY);
+        ctx.lineTo(centerX + halfBottomW * offsetRatio * 2.1, bottomY);
+        ctx.stroke();
+      });
+
+      for (let i = 0; i < 9; i++) {
+        const zLine = ((i / 9) + state.roadScroll) % 1;
+        const pLine = project3D(1, zLine);
+        ctx.fillStyle = st.roadStripe;
+        ctx.globalAlpha = 0.18 + pLine.t * 0.55;
+        const barW = Math.max(8, Math.round(pLine.roadHalfW * 0.12));
+        const barH = Math.max(2, Math.round(4 * pLine.scale));
+        ctx.fillRect(Math.round(pLine.x - barW / 2), Math.round(pLine.y), barW, barH);
+      }
+      ctx.globalAlpha = 1;
+
+      const sorted = [...state.entities].sort((a, b) => b.z - a.z);
+      sorted.forEach(ent => {
+        if (ent.z < 0 || ent.z > 1) return;
+        const pos = project3D(ent.lane, ent.z);
+        const floatY = ent.airborne ? 28 * pos.scale : Math.sin(state.runAnim + ent.z * 12) * 5 * pos.scale;
+        const drawY = pos.y - floatY;
+        const boxSize = Math.max(12, Math.round(34 * pos.scale));
+
+        if (ent.kind === 'item') {
+          ctx.fillStyle = 'rgba(15, 23, 42, 0.88)';
+          ctx.fillRect(Math.round(pos.x - boxSize / 2), Math.round(drawY - boxSize), boxSize, boxSize);
+          ctx.strokeStyle = ent.type.color;
+          ctx.lineWidth = Math.max(2, Math.round(2.5 * pos.scale));
+          ctx.strokeRect(Math.round(pos.x - boxSize / 2), Math.round(drawY - boxSize), boxSize, boxSize);
+
+          ctx.font = `${Math.max(12, Math.round(20 * pos.scale))}px sans-serif`;
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(ent.type.icon, pos.x, drawY - boxSize / 2);
+        } else {
+          const obsW = Math.max(16, Math.round(46 * pos.scale));
+          const obsH = Math.max(14, Math.round(32 * pos.scale));
+          ctx.fillStyle = '#881337';
+          ctx.fillRect(Math.round(pos.x - obsW / 2), Math.round(drawY - obsH), obsW, obsH);
+          ctx.strokeStyle = '#fb7185';
+          ctx.lineWidth = Math.max(2, Math.round(2.5 * pos.scale));
+          ctx.strokeRect(Math.round(pos.x - obsW / 2), Math.round(drawY - obsH), obsW, obsH);
+
+          if (pos.scale > 0.42) {
+            ctx.fillStyle = '#ffe4e6';
+            ctx.font = `700 ${Math.max(10, Math.round(12 * pos.scale))}px "IBM Plex Sans Arabic", sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.fillText(ent.label, pos.x, drawY - obsH / 2 + 4);
+          }
+        }
+      });
+
+      if (state.mode === 'playing' || state.mode === 'warping') {
+        const blinkSkip = state.invulnTimer > 0 && Math.floor(state.invulnTimer / 4) % 2 === 0;
+        if (!blinkSkip) {
+          const pPos = project3D(state.laneVisual, 0);
+          drawPixelRunner(
+            pPos.x,
+            pPos.y,
+            1.15,
+            state.jumpZ,
+            state.runAnim,
+            state.overdriveTimer > 0
+          );
+        }
+      }
+
+      state.particles.forEach(pt => {
+        ctx.fillStyle = pt.color;
+        ctx.fillRect(Math.round(pt.x), Math.round(pt.y), pt.size, pt.size);
+      });
+
+      if (state.mode === 'warping') {
+        const wProg = state.warpProgress;
+        ctx.save();
+        ctx.strokeStyle = wProg < 0.5 ? '#22d3ee' : '#c084fc';
+        ctx.lineWidth = 5;
+        const maxR = Math.hypot(viewW, viewH) * 0.6;
+        for (let r = 1; r <= 5; r++) {
+          const rad = ((wProg * 1.4 + r * 0.22) % 1) * maxR;
+          ctx.globalAlpha = Math.max(0, 1 - rad / maxR);
+          ctx.strokeRect(
+            Math.round(viewW / 2 - rad),
+            Math.round(viewH / 2 - rad),
+            Math.round(rad * 2),
+            Math.round(rad * 2)
+          );
+        }
+        ctx.restore();
+      }
+    }
+
+    function loop() {
+      update();
+      render();
+      requestAnimationFrame(loop);
+    }
+
+    updateHUD();
+    loop();
+  </script>
+</body>
+</html>
